@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  STAFF
+  ADMIN
+}
+
+enum SeatType {
+  COUNTER
+  SOFA2
+}
+
+enum SeatState {
+  VACANT
+  IN_USE
+  AWAY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  NO_ANSWER
+}
+
+enum SessionState {
+  ACTIVE
+  AWAY
+  ENDED
+  FORCE_ENDED
+}
+
+enum EntryMethod {
+  QR
+  WIFI
+  GPS
+}
+
+enum Rarity {
+  COMMON
+  RARE
+  ULTRA_RARE
+}
+
+model User {
+  id           String             @id @default(cuid())
+  email        String             @unique
+  passwordHash String
+  name         String
+  role         Role               @default(USER)
+  sessions     Session[]
+  stamps       StampAcquisition[]
+  histories    UsageHistory[]
+  createdAt    DateTime           @default(now())
+}
+
+model Store {
+  id         String   @id @default(cuid())
+  name       String
+  layoutJson String
+  seats      Seat[]
+  sessions   Session[]
+  createdAt  DateTime @default(now())
+}
+
+model Seat {
+  id        String    @id @default(cuid())
+  storeId   String
+  code      String
+  type      SeatType
+  state     SeatState @default(VACANT)
+  x         Int
+  y         Int
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+
+  @@unique([storeId, code])
+}
+
+model Session {
+  id               String       @id @default(cuid())
+  userId           String
+  storeId          String
+  seatId           String
+  peopleCount      Int
+  gender           Gender
+  state            SessionState @default(ACTIVE)
+  entryMethod      EntryMethod
+  startedAt        DateTime     @default(now())
+  awayStartedAt    DateTime?
+  endedAt          DateTime?
+  notifiedUsage10  Boolean      @default(false)
+  notifiedUsage5   Boolean      @default(false)
+  notifiedUsageEnd Boolean      @default(false)
+  notifiedAway10   Boolean      @default(false)
+  notifiedAway5    Boolean      @default(false)
+  notifiedAwayEnd  Boolean      @default(false)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store            Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  seat             Seat         @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  history          UsageHistory?
+}
+
+model UsageHistory {
+  id         String   @id @default(cuid())
+  userId     String
+  sessionId  String   @unique
+  seatCode   String
+  storeName  String
+  startedAt  DateTime
+  endedAt    DateTime
+  forced     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model StampDesign {
+  id          String   @id @default(cuid())
+  title       String
+  imageEmoji  String
+  rarity      Rarity
+  seasonTag   String?
+  weight      Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  acquisitions StampAcquisition[]
+}
+
+model StampAcquisition {
+  id         String      @id @default(cuid())
+  userId     String
+  stampId    String
+  acquiredAt DateTime    @default(now())
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stamp      StampDesign @relation(fields: [stampId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  kind      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
